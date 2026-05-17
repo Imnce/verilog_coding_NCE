@@ -1,0 +1,23 @@
+{
+  "skill_name": "verilog-code-style",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我写一个 mram_ctrl.v，包含 SPI 读写命令控制，接口有 i_clk/i_rst、命令 valid/ready、地址、写数据、读数据输出，按我的 Verilog 风格来。",
+      "expected_output": "生成 Vivado 风格 Verilog 模块，包含标准文件头、i_/o_/r_/w_ 前缀、P_ 参数/命令、4 空格缩进、复位逻辑、SPI/MRAM 分区注释和对齐端口。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "整理这个 AXI Stream FIFO 模块的端口和实例化格式，保持功能不变，风格按 Verilog_Code_Style.md。",
+      "expected_output": "修改端口声明和实例化为对齐格式，保留 AXI Stream valid/ready/data/user/keep/last 语义，使用正确前缀和 section 注释。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "给我写一个简单的上电复位生成模块 rst_gen，复位保持 P_RST_CYCLE 个周期，输出 o_rst，Vivado 可用。",
+      "expected_output": "生成小型 Verilog 模块，使用 timescale/Vivado 文件头、参数 P_RST_CYCLE、异步 i_rst 优先、计数器和 ro_/assign 输出风格。",
+      "files": []
+    }
+  ]
+}
