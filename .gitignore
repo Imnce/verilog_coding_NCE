@@ -1,4 +1,6 @@
 /*
 !.gitignore
-!/skills/
-!/skills/**
+!skills/
+skills/*
+!skills/verilog-code-style/
+!skills/verilog-code-style/**
