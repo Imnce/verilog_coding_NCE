@@ -135,6 +135,34 @@ module mram_ctrl#(
 
 Use spaces inside bit ranges to preserve alignment, especially for narrow widths: `[7 :0]`, `[15:0]`, `[63:0]`. Align wider declarations with nearby declarations.
 
+### Explicit wire for ports under `` `default_nettype none ``
+
+When using `` `default_nettype none ``, every `input` and `output` port must be explicitly declared as `wire`. Without it, synthesis tools report "net type was not explicitly declared" (vlog-2892).
+
+```verilog
+// Good — explicit wire under `default_nettype none
+module example #(
+    parameter      P_WIDTH         = 32'd8
+)(
+    input  wire                     i_clk               , // system clock
+    input  wire                     i_rst               , // active-high reset
+    input  wire [P_WIDTH-1 :0]      i_data              , // input data
+    output wire                     o_valid             , // output valid
+    output wire [P_WIDTH-1 :0]      o_data               // output data
+);
+
+// Bad — missing wire under `default_nettype none
+module example #(
+    parameter      P_WIDTH         = 32'd8
+)(
+    input                            i_clk               , // ERROR: net type not declared
+    input                            i_rst               , // ERROR: net type not declared
+    input         [P_WIDTH-1 :0]     i_data              , // ERROR: net type not declared
+    output                           o_valid             ,
+    output        [P_WIDTH-1 :0]     o_data
+);
+```
+
 ## RTL correctness rules
 
 - Use nonblocking assignments `<=` in sequential logic.
