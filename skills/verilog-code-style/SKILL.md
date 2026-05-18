@@ -117,6 +117,30 @@ else if(i_ready)            r_valid <= 1'b0;
 
 Applies to: `r_rvalid`, `r_mram_rd_valid`, `r_bvalid`, and any registered valid flag that clears on handshake.
 
+### Register self-guard on edge transitions
+
+When setting or clearing a register on an edge condition, include the register's current value in the condition. This prevents glitch-induced false writes if the trigger signal toggles unexpectedly.
+
+```verilog
+// Good — guard with register itself, only fires on true edge
+always @(posedge i_clk) begin
+    if(i_rst)                     r_flag <= 1'b0;
+    else if(w_trig && !r_flag)    r_flag <= 1'b1;
+    else if(w_done &&  r_flag)    r_flag <= 1'b0;
+    else                          r_flag <= r_flag;
+end
+
+// Bad — no self-guard, may retrigger if w_trig toggles while r_flag already high
+always @(posedge i_clk) begin
+    if(i_rst)               r_flag <= 1'b0;
+    else if(w_trig)         r_flag <= 1'b1;
+    else if(w_done)         r_flag <= 1'b0;
+    else                    r_flag <= r_flag;
+end
+```
+
+Rationale: if `w_trig` glitches or the condition evaluates true for multiple cycles, the Bad version rewrites `r_flag <= 1'b1` every cycle (wasted toggling). The Good version fires exactly once per edge.
+
 ### Explicit bit widths
 
 All literals carry explicit widths matching the target register or expression context.
