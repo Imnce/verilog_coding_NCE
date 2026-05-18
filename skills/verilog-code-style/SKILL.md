@@ -323,10 +323,10 @@ New modules: Vivado-style header. Fill `Company`, `Engineer`, `Target Devices`, 
 //////////////////////////////////////////////////////////////////////////////////
 ```
 
-When modifying: preserve ALL `Revision` history. Append new entry with version, description, date:
+When modifying: preserve ALL `Revision` history. Append new entry with version, description, date (y/m/d):
 ```verilog
-// Revision 0.02 - add burst mode support
-// Revision 0.03 - fix spi timing, 2026-05-17
+// Revision 0.02 - add burst mode support, 2026/05/17
+// Revision 0.03 - fix spi timing, 2026/05/18
 ```
 
 ## 8. Formatting & comments
