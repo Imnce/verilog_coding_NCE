@@ -172,6 +172,134 @@ module example #(
 - Avoid combinational feedback loops. If feedback is required, break it with a register.
 - Register-to-register paths should not contain long combinational chains. If logic approaches more than about 4 LUT levels or misses target frequency, prefer pipeline insertion or logic restructuring instead of relying on synthesis magic.
 
+### Registered output isolation (r_o_xx)
+
+Module output ports should be driven by registered signals, not combinational logic. This prevents long combinational paths from feeding into downstream modules and improves timing closure.
+
+Use `r_o_` prefix for output register, then `assign o_port = r_o_port`:
+
+```verilog
+// Good — registered output
+reg                                     r_o_rd_ready        ; // registered read ready output
+reg                                     r_o_wr_ready        ; // registered write ready output
+
+assign o_rd_ready = r_o_rd_ready;
+assign o_wr_ready = r_o_wr_ready;
+
+// Bad — combinational output
+assign o_rd_ready = (r_st_current == P_IDEL) & w_fifo_empty & w_all_ready;
+```
+
+Exception: outputs that are constant (e.g. `o_wr_ready = 1'b1`) or already driven by a dedicated register from a sub-module do not need a separate `r_o_` wrapper.
+
+### Register signals driving sub-module instances
+
+Control signals connected to sub-module instance ports (valid, type, op_code, etc.) must be driven by registers, not combinational expressions.
+
+```verilog
+// Good — registered operation valid and type
+reg                                     r_op_valid          ; // registered operation valid to drivers
+reg  [1 :0]                             r_op_type           ; // registered operation type (1:write 2:read)
+
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_op_valid <= 1'b0;
+    else if(r_st_next == P_WR_REQ && r_st_current == P_FIFO_LATCH)
+        r_op_valid <= 1'b1;
+    else if(r_st_next == P_RD_REQ && r_st_current == P_IDEL)
+        r_op_valid <= 1'b1;
+    else if(w_all_handshake)
+        r_op_valid <= 1'b0;
+    else
+        r_op_valid <= r_op_valid;
+end
+
+mram_driver u0_mram_driver (
+    .i_operation_type               (r_op_type                      ),
+    .i_operation_valid              (r_op_valid                     ),
+    ...
+);
+
+// Bad — combinational mux and valid in port map
+mram_driver u0_mram_driver (
+    .i_operation_type               ((r_st_current == P_WR_REQ) ? 2'd1 : 2'd2),
+    .i_operation_valid              (w_op_valid                     ),
+    ...
+);
+```
+
+### FSM edge-triggered state entry detection
+
+When latching data or setting flags on entering a specific FSM state, use the exact transition edge `r_st_next == P_TARGET && r_st_current == P_SOURCE` instead of level-triggered `r_st_current == P_TARGET`. This fires exactly once on the state transition and does not depend on `r_st_cnt`, avoiding counter overflow concerns.
+
+```verilog
+// Good — edge-triggered, exact transition
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_op_type <= 2'd2;
+    else if(r_st_next == P_WR_REQ && r_st_current == P_FIFO_LATCH)
+        r_op_type <= 2'd1;
+    else if(r_st_next == P_RD_REQ && r_st_current == P_IDEL)
+        r_op_type <= 2'd2;
+    else if(r_st_next == P_RD_REQ && r_st_current == P_WR_WAIT_DONE)
+        r_op_type <= 2'd2;
+    else
+        r_op_type <= r_op_type;
+end
+
+// Bad — level-triggered, fires every cycle while in state
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_op_type <= 2'd2;
+    else if(r_st_current == P_WR_REQ)
+        r_op_type <= 2'd1;
+    else if(r_st_current == P_RD_REQ)
+        r_op_type <= 2'd2;
+    else
+        r_op_type <= r_op_type;
+end
+
+// Bad — uses r_st_cnt, overflow risk at 16'hFFFF -> 0
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_op_type <= 2'd2;
+    else if(r_st_current == P_WR_REQ && r_st_cnt == 16'd0)
+        r_op_type <= 2'd1;
+end
+```
+
+When a state has multiple entry paths, list each transition explicitly:
+
+```verilog
+else if(r_st_next == P_RD_REQ && r_st_current == P_IDEL)
+    ...
+else if(r_st_next == P_RD_REQ && r_st_current == P_WR_WAIT_DONE)
+    ...
+```
+
+### Ready handshake register pattern
+
+For ready/valid handshake output ports, use a register that clears on handshake and asserts on a completion edge — no combinational gating:
+
+```verilog
+// Good — handshake-based registered ready
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_o_rd_ready <= 1'b0;
+    else if(i_rd_valid && r_o_rd_ready)
+        r_o_rd_ready <= 1'b0;
+    else if(r_st_current == P_RD_DONE && r_st_next == P_IDEL)
+        r_o_rd_ready <= 1'b1;
+    else
+        r_o_rd_ready <= r_o_rd_ready;
+end
+
+// Bad — combinational gating, long path
+assign o_rd_ready = (r_st_current == P_IDEL) & w_fifo_empty & w_all_ready;
+```
+
+All internal consumers of the ready signal must reference the registered version (`r_o_rd_ready`), not a combinational wire.
+
 ## Formatting
 
 - Use 4 spaces for indentation, never tabs.
