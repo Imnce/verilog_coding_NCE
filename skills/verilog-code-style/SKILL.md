@@ -103,23 +103,9 @@ always @(posedge i_clk) begin
 end
 ```
 
-### Valid flag clear guard
-
-When clearing a registered valid flag on handshake, guard with the flag itself to prevent accidental clear.
-
-```verilog
-// Good
-else if(i_ready && r_valid) r_valid <= 1'b0;
-
-// Bad — may clear when already low
-else if(i_ready)            r_valid <= 1'b0;
-```
-
-Applies to: `r_rvalid`, `r_mram_rd_valid`, `r_bvalid`, and any registered valid flag that clears on handshake.
-
 ### Register self-guard on edge transitions
 
-When setting or clearing a register on an edge condition, include the register's current value in the condition. This prevents glitch-induced false writes if the trigger signal toggles unexpectedly.
+When setting or clearing a register on an edge condition, include the register's current value in the condition. This prevents false writes if the trigger toggles unexpectedly or fires for multiple cycles. Each transition fires exactly once.
 
 ```verilog
 // Good — guard with register itself, only fires on true edge
@@ -130,7 +116,7 @@ always @(posedge i_clk) begin
     else                          r_flag <= r_flag;
 end
 
-// Bad — no self-guard, may retrigger if w_trig toggles while r_flag already high
+// Bad — no self-guard, may retrigger while flag already at target value
 always @(posedge i_clk) begin
     if(i_rst)               r_flag <= 1'b0;
     else if(w_trig)         r_flag <= 1'b1;
@@ -139,7 +125,16 @@ always @(posedge i_clk) begin
 end
 ```
 
-Rationale: if `w_trig` glitches or the condition evaluates true for multiple cycles, the Bad version rewrites `r_flag <= 1'b1` every cycle (wasted toggling). The Good version fires exactly once per edge.
+Common application — valid flag clear on handshake:
+```verilog
+// Good
+else if(i_ready && r_valid) r_valid <= 1'b0;
+
+// Bad — may clear when already low
+else if(i_ready)            r_valid <= 1'b0;
+```
+
+Applies to: `r_rvalid`, `r_mram_rd_valid`, `r_bvalid`, and any registered flag with set/clear handshake.
 
 ### Explicit bit widths
 
