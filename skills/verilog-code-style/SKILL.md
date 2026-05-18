@@ -195,7 +195,7 @@ end
 // Bad — level-triggered, fires every cycle in state
 else if(r_st_current == P_WR_REQ) r_op_type <= 2'd1;
 
-// Bad — r_st_cnt overflow risk at 16'hFFFF -> 0
+// normal — r_st_cnt overflow risk at 16'hFFFF -> 0
 else if(r_st_current == P_WR_REQ && r_st_cnt == 16'd0) r_op_type <= 2'd1;
 ```
 
@@ -332,7 +332,8 @@ When modifying: preserve ALL `Revision` history. Append new entry with version, 
 ## 8. Formatting & comments
 
 - 4 spaces indentation, never tabs.
-- `<=` in sequential logic, `=` in combinational logic.
+- Use nonblocking `<=` in sequential logic.
+- Use blocking `=` in combinational logic and continuous `assign` expressions.
 - Spaces around assignment and binary operators.
 - Declaration order: parameters → wires → registers → assign → always blocks → instances.
 
@@ -435,7 +436,7 @@ end
 Project default: active-high async reset.
 ```verilog
 always @(posedge i_clk or posedge i_rst) begin
-    if(i_rst) r_cnt <= 'd0; else r_cnt <= r_cnt + 'd1;
+    if(i_rst) r_cnt <= 16'd0; else r_cnt <= r_cnt + 16'd1;
 end
 ```
 
@@ -484,8 +485,8 @@ Vendor IP uses device-specific primitives (BRAM, DSP, carry chains) hand-RTL can
 
 ## 15. Numeric literals
 
-Explicit widths with readable separators:
-- Decimal: `32'd49_999_999`, `8'd0`, `'d0`, `'d1`
+Explicit widths with readable separators (matching §1 Explicit bit widths rule):
+- Decimal: `32'd49_999_999`, `8'd0`, `16'd1`
 - Hex: `8'hFF`, `16'h0800`
 - Binary: `8'b1111_1111`
 - Always include apostrophe: `8'hFF` not `8hFF`.
