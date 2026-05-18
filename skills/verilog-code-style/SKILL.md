@@ -111,7 +111,7 @@ For handshake signals, use `w_xxx_handshake`:
 wire w_op_handshake = i_op_valid && o_op_ready;  // valid/ready handshake
 ```
 
-For module instances, use `module_name_u0`, `module_name_u1`, or `module_name_ux`. Keep legacy uppercase IP instance style only when the existing project already uses it, e.g. `FIFO_64X256_u0`.
+For module instances, use `u0_module_name`, `u1_module_name`, or `ux_module_name` (prefix form). Keep legacy uppercase IP instance style only when the existing project already uses it, e.g. `u0_FIFO_64X256`.
 
 ## Port declarations
 
@@ -158,19 +158,21 @@ Use spaces inside bit ranges to preserve alignment, especially for narrow widths
 
 ## Always block discipline
 
+Always add a space between `always` and `@()`: `always @(posedge i_clk)`.
+
 One `always` block should drive **only one register**, except when the reset condition and update condition are identical across multiple registers.
 
 Good — single register per always:
 
 ```verilog
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_valid <= 1'd0;
     else
         r_valid <= i_valid;
 end
 
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_data <= 'd0;
     else if(i_valid)
@@ -181,7 +183,7 @@ end
 Allowed exception — identical conditions, simple parallel delay:
 
 ```verilog
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst) begin
         r_u0_ready_1d <= 1'd0;
         r_u1_ready_1d <= 1'd0;
@@ -197,7 +199,7 @@ end
 Bad — different conditions mixed in one block:
 
 ```verilog
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst) begin
         r_valid <= 1'd0;
         r_data  <= 'd0;
@@ -217,7 +219,7 @@ Every `if` / `else if` chain inside an `always` block must close with a final `e
 
 ```verilog
 // Good — final else收敛
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_state <= P_IDLE;
     else if(w_trig)
@@ -227,7 +229,7 @@ always@(posedge i_clk) begin
 end
 
 // Bad — 无else，虽综合器可推断保持，但意图不明
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_state <= P_IDLE;
     else if(w_trig)
@@ -235,7 +237,7 @@ always@(posedge i_clk) begin
 end
 
 // Bad — else分支未赋值目标寄存器
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_cnt <= 8'd0;
     else if(w_inc)
@@ -244,6 +246,72 @@ always@(posedge i_clk) begin
 end
 ```
 
+### Flat else-if rule
+
+Single-register always block with multiple mutually-exclusive conditions must use flat `else if` chain, not `else begin...end` nesting.
+
+```verilog
+// Good — flat else if chain
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_aw_en <= 1'b1;
+    else if(w_a)
+        r_aw_en <= 1'b1;
+    else if(w_b)
+        r_aw_en <= 1'b0;
+    else
+        r_aw_en <= r_aw_en;
+end
+
+// Bad — nested else begin...end hides same-condition logic
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_aw_en <= 1'b1;
+    else begin
+        if(w_a)
+            r_aw_en <= 1'b1;
+        else if(w_b)
+            r_aw_en <= 1'b0;
+        else
+            r_aw_en <= r_aw_en;
+    end
+end
+```
+
+Rationale: nested `else begin...end` adds indentation without expressing additional structure. Flat chain equally correct, more readable. Reserve `else begin...end` for cases where multiple registers share same reset and update conditions.
+
+### Valid flag clear guard
+
+When clearing a registered valid flag on ready handshake, guard with the flag itself (`i_ready && r_valid`) to prevent accidental clear when flag is already low.
+
+```verilog
+// Good — guard with r_valid
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_valid <= 1'b0;
+    else if(i_ready && r_valid)
+        r_valid <= 1'b0;
+    else if(w_trig)
+        r_valid <= 1'b1;
+    else
+        r_valid <= r_valid;
+end
+
+// Bad — bare i_ready may clear when r_valid is already 0
+always @(posedge i_clk) begin
+    if(i_rst)
+        r_valid <= 1'b0;
+    else if(i_ready)          // should be i_ready && r_valid
+        r_valid <= 1'b0;
+    else if(w_trig)
+        r_valid <= 1'b1;
+    else
+        r_valid <= r_valid;
+end
+```
+
+Applies to: `r_rvalid`, `r_mram_rd_valid`, `r_bvalid`, and any registered valid flag that clears on handshake.
+
 ### Explicit bit widths
 
 All literals must carry explicit bit widths. Never use width-inferred forms like `'d0` or `'d1`. Match the width to the target register or expression context.
@@ -251,7 +319,7 @@ All literals must carry explicit bit widths. Never use width-inferred forms like
 ```verilog
 // Good — explicit widths
 reg [7:0] r_cnt;
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_cnt <= 8'd0;
     else if(w_inc)
@@ -262,7 +330,7 @@ end
 
 // Bad — width inferred
 reg [7:0] r_cnt;
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_cnt <= 'd0;           // width inferred, may cause truncation warning
     else if(w_inc)
@@ -271,7 +339,7 @@ end
 
 // Good — explicit widths, all registers
 reg [31:0] r_data;
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_data <= 32'd0;
     else if(w_valid)
@@ -302,7 +370,7 @@ If a signal crosses from `i_clk_a` to `i_clk_b`, say so directly and show synchr
 AXI bus uses active-low synchronous reset (`i_axi_aresetn`). Use directly in sensitivity list — no synchronizer needed:
 
 ```verilog
-always@(posedge i_axi_aclk, negedge i_axi_aresetn) begin
+always @(posedge i_axi_aclk, negedge i_axi_aresetn) begin
     if(!i_axi_aresetn)
         r_axil_reg <= 32'd0;
     else
@@ -316,7 +384,7 @@ For non-AXI modules, use the project's chosen reset style (typically active-high
 For asynchronous active-high reset, use:
 
 ```verilog
-always@(posedge i_clk,posedge i_rst) begin
+always @(posedge i_clk,posedge i_rst) begin
     if(i_rst) begin
         r_cnt <= 'd0;
     end else begin
@@ -330,7 +398,7 @@ Reset has highest priority and appears first inside the `always` block. Use `'d0
 For derived/internal resets or generated reset signals, use synchronous reset style:
 
 ```verilog
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(w_rst) begin
         r_state <= P_INIT;
     end else begin
@@ -373,7 +441,7 @@ Use section dividers to separate functional areas:
 
 Common section names include `param`, `FSM`, `rst_gen instance`, `register`, `wire`, `cmd_ctrl`, `data_path`, and `module instance`.
 
-When a file contains many module instances, split the `register` and `wire` sections by instance or subsystem using clear comments. Prefer concise labels such as `// spi_drive_u0 signal`, `// fifo_wr_u0 signal`, or Chinese equivalents that match the file. Keep each group close in naming and purpose, and avoid mixing unrelated instance signals in one block.
+When a file contains many module instances, split the `register` and `wire` sections by instance or subsystem using clear comments. Prefer concise labels such as `// u0_spi_drive signal`, `// u0_fifo_wr signal`, or Chinese equivalents that match the file. Keep each group close in naming and purpose, and avoid mixing unrelated instance signals in one block.
 
 Use single-line `//` comments only where they clarify meaning that is not obvious from names. Chinese comments are acceptable and preferred when they match the surrounding file. For packed metadata fields, use compact bit layout comments such as:
 
@@ -392,7 +460,7 @@ Every `input`, `output`, `reg`, and `wire` declaration should include a short al
 reg                                     r_cmd_valid                         ; // command valid flag
 reg  [7 :0]                             r_cmd_data                          ; // command byte buffer
 
-// spi_drive_u0 signal
+// u0_spi_drive signal
 reg  [31:0]                             r_spi_op_data                       ; // SPI command/address field
 wire                                    w_spi_ready                         ; // SPI operation ready
 wire [7 :0]                             w_spi_read_data                     ; // SPI read byte
@@ -402,7 +470,7 @@ wire                                    w_fifo_wr_en                        ; //
 wire [7 :0]                             w_fifo_wr_data                      ; // FIFO write data
 ```
 
-For small modules, one `register` block and one `wire` block is enough. For larger modules, group signals by instance (`spi_drive_u0`, `fifo_wr_u0`, etc.) or by subsystem before writing the logic, and use comment dividers between groups. Keep the grouping consistent with the later module instance order when possible.
+For small modules, one `register` block and one `wire` block is enough. For larger modules, group signals by instance (`u0_spi_drive`, `u0_fifo_wr`, etc.) or by subsystem before writing the logic, and use comment dividers between groups. Keep the grouping consistent with the later module instance order when possible.
 
 ## Module instantiation
 
@@ -413,7 +481,7 @@ udp_rx#(
     .P_SOURCE_PORT      (P_SOURCE_PORT          ),
     .P_TARGET_PORT      (P_TARGET_PORT          )
 )
-udp_rx_u0
+u0_udp_rx
 (
     .i_clk              (i_clk                  ),
     .i_rst              (i_rst                  ),
@@ -424,7 +492,7 @@ udp_rx_u0
 For vendor/IP modules whose names are uppercase in the project, preserve that name:
 
 ```verilog
-FIFO_64X256 FIFO_64X256_u0
+FIFO_64X256 u0_FIFO_64X256
 (
     .clk                (i_clk                  ),
     .srst               (i_rst                  )
@@ -478,14 +546,14 @@ Use `_1d`, `_2d`, `_3d` suffixes for delayed pipeline stages. Use `generate` for
 Use three-block FSM style for all explicit state machines:
 
 - **Block 1** — sequential: state register (`r_st_current <= r_st_next`)
-- **Block 2** — combinational: next state logic (`always@(*)`), must use `=` (blocking assignment)
+- **Block 2** — combinational: next state logic (`always @(*)`), must use `=` (blocking assignment)
 - **Block 3** — sequential: state duration counter (`r_st_cnt`)
 
 ```verilog
 //----------------------------------------------------------------
 // FSM: state register
 //----------------------------------------------------------------
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_st_current <= P_R_REG;
     else
@@ -495,7 +563,7 @@ end
 //----------------------------------------------------------------
 // FSM: next state logic (combinational)
 //----------------------------------------------------------------
-always@(*) begin
+always @(*) begin
     case(r_st_current)
         P_R_REG     : r_st_next = w_io_drive_act ? P_REG_CHECK : P_R_REG;
         P_REG_CHECK : r_st_next = i_reg_valid ? (i_reg_data[0] ? P_REG_WAIT : (!r_w_reg_flag ? P_W_EN : P_IDEL)) : P_REG_CHECK;
@@ -515,7 +583,7 @@ end
 //----------------------------------------------------------------
 // FSM: state duration counter
 //----------------------------------------------------------------
-always@(posedge i_clk) begin
+always @(posedge i_clk) begin
     if(i_rst)
         r_st_cnt <= 16'd0;
     else if(r_st_current != r_st_next)
@@ -526,7 +594,7 @@ end
 ```
 
 Rules:
-- Block 2 must use blocking assignment `=`, not `<=`. This is a combinational block — `always@(*)` infers no latches when all outputs are assigned in every branch.
+- Block 2 must use blocking assignment `=`, not `<=`. This is a combinational block — `always @(*)` infers no latches when all outputs are assigned in every branch.
 - Block 2 must close with `default` in the case statement.
 - State names use `P_` prefix (localparam), state register uses `r_st_current`, next state uses `r_st_next` (wire or reg, but must be driven combinationally).
 - Transition conditions in Block 2 should be compact; complex multi-line conditions go in separate `assign` wires before the case block.
