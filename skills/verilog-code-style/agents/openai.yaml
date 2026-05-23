@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verilog Code Style"
+  short_description: "Vivado RTL style guide for Verilog."
+  default_prompt: "Use $verilog-code-style to write, edit, or review this RTL."

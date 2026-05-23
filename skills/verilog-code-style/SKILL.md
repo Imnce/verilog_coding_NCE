@@ -1,6 +1,7 @@
 ---
 name: verilog-code-style
-description: Write, modify, review, or format any Verilog/SystemVerilog code using the user's Vivado-oriented Verilog style guide. Use this skill for every Verilog/RTL task: creating modules, editing .v/.sv files, implementing FPGA logic, writing test RTL, instantiating modules, cleaning formatting, reviewing style, or generating any Verilog code of any domain. Trigger even if the user only says "按风格", "整理代码", "写个模块", "写 Verilog", "改 RTL", or mentions Vivado/FPGA/RTL.
+description: >
+  Write, modify, review, or format any Verilog/SystemVerilog code using the user's Vivado-oriented Verilog style guide. Use this skill for every Verilog/RTL task: creating modules, editing .v/.sv files, implementing FPGA logic, writing test RTL, instantiating modules, cleaning formatting, reviewing style, or generating any Verilog code of any domain. Trigger even if the user only says "按风格", "整理代码", "写个模块", "写 Verilog", "改 RTL", or mentions Vivado/FPGA/RTL.
 ---
 
 # Verilog Code Style Skill
@@ -22,16 +23,26 @@ Synthesizable production RTL for Xilinx and Microchip FPGA. Target: function, ti
 
 **Space after `always`**: `always @(posedge i_clk)`, not `always@(posedge i_clk)`.
 
+Sequential `always @(posedge ...)` blocks write condition and assignment on separate lines. Do not compress `if(...) reg <= value; else reg <= next;` into one line.
+
 **One register per always block**. Exception: multiple registers with identical reset and update conditions.
 
 ```verilog
 // Good — single register per always
 always @(posedge i_clk) begin
-    if(i_rst) r_valid <= 1'd0; else r_valid <= i_valid;
+    if(i_rst)
+        r_valid <= 1'd0;
+    else
+        r_valid <= i_valid;
 end
 
 always @(posedge i_clk) begin
-    if(i_rst) r_data <= 'd0; else if(i_valid) r_data <= i_data;
+    if(i_rst)
+        r_data <= 'd0;
+    else if(i_valid)
+        r_data <= i_data;
+    else
+        r_data <= r_data;
 end
 
 // Allowed exception — identical conditions, simple parallel delay
@@ -67,15 +78,20 @@ Every `if` / `else if` chain must close with a final `else` that explicitly assi
 ```verilog
 // Good
 always @(posedge i_clk) begin
-    if(i_rst)       r_state <= P_IDLE;
-    else if(w_trig) r_state <= P_RUN;
-    else            r_state <= r_state;     // explicit hold
+    if(i_rst)
+        r_state <= P_IDLE;
+    else if(w_trig)
+        r_state <= P_RUN;
+    else
+        r_state <= r_state;     // explicit hold
 end
 
 // Bad — missing else, intent unclear
 always @(posedge i_clk) begin
-    if(i_rst)       r_state <= P_IDLE;
-    else if(w_trig) r_state <= P_RUN;
+    if(i_rst)
+        r_state <= P_IDLE;
+    else if(w_trig)
+        r_state <= P_RUN;
 end
 ```
 
@@ -86,19 +102,27 @@ Single-register always block with mutually-exclusive conditions: use flat `else 
 ```verilog
 // Good — flat chain
 always @(posedge i_clk) begin
-    if(i_rst)       r_aw_en <= 1'b1;
-    else if(w_a)    r_aw_en <= 1'b1;
-    else if(w_b)    r_aw_en <= 1'b0;
-    else            r_aw_en <= r_aw_en;
+    if(i_rst)
+        r_aw_en <= 1'b1;
+    else if(w_a)
+        r_aw_en <= 1'b1;
+    else if(w_b)
+        r_aw_en <= 1'b0;
+    else
+        r_aw_en <= r_aw_en;
 end
 
 // Bad — nested else begin...end adds indentation without structure
 always @(posedge i_clk) begin
-    if(i_rst)       r_aw_en <= 1'b1;
+    if(i_rst)
+        r_aw_en <= 1'b1;
     else begin
-        if(w_a)     r_aw_en <= 1'b1;
-        else if(w_b) r_aw_en <= 1'b0;
-        else        r_aw_en <= r_aw_en;
+        if(w_a)
+            r_aw_en <= 1'b1;
+        else if(w_b)
+            r_aw_en <= 1'b0;
+        else
+            r_aw_en <= r_aw_en;
     end
 end
 ```
@@ -110,28 +134,38 @@ When setting or clearing a register on an edge condition, include the register's
 ```verilog
 // Good — guard with register itself, only fires on true edge
 always @(posedge i_clk) begin
-    if(i_rst)                     r_flag <= 1'b0;
-    else if(w_trig && !r_flag)    r_flag <= 1'b1;
-    else if(w_done &&  r_flag)    r_flag <= 1'b0;
-    else                          r_flag <= r_flag;
+    if(i_rst)
+        r_flag <= 1'b0;
+    else if(w_trig && !r_flag)
+        r_flag <= 1'b1;
+    else if(w_done &&  r_flag)
+        r_flag <= 1'b0;
+    else
+        r_flag <= r_flag;
 end
 
 // Bad — no self-guard, may retrigger while flag already at target value
 always @(posedge i_clk) begin
-    if(i_rst)               r_flag <= 1'b0;
-    else if(w_trig)         r_flag <= 1'b1;
-    else if(w_done)         r_flag <= 1'b0;
-    else                    r_flag <= r_flag;
+    if(i_rst)
+        r_flag <= 1'b0;
+    else if(w_trig)
+        r_flag <= 1'b1;
+    else if(w_done)
+        r_flag <= 1'b0;
+    else
+        r_flag <= r_flag;
 end
 ```
 
 Common application — valid flag clear on handshake:
 ```verilog
 // Good
-else if(i_ready && r_valid) r_valid <= 1'b0;
+else if(i_ready && r_valid)
+    r_valid <= 1'b0;
 
 // Bad — may clear when already low
-else if(i_ready)            r_valid <= 1'b0;
+else if(i_ready)
+    r_valid <= 1'b0;
 ```
 
 Applies to: `r_rvalid`, `r_mram_rd_valid`, `r_bvalid`, and any registered flag with set/clear handshake.
@@ -161,7 +195,7 @@ Exception for `P_` constants with explicit widths — usable directly without re
 
 ### Registered output isolation (r_o_xx)
 
-Module output ports driven by registered signals, not combinational logic. Use `r_o_` prefix → `assign o_xxx = r_o_xxx`.
+Module output ports driven by registered signals, not combinational logic. Use `r_o_` prefix -> `assign o_xxx = r_o_xxx`.
 
 ```verilog
 // Good
@@ -192,7 +226,8 @@ mram_driver u0 (
 // Bad — combinational in port map
 mram_driver u0 (
     .i_operation_valid (w_op_valid),
-    .i_operation_type  ((r_st_current == P_WR_REQ) ? 2'd1 : 2'd2),
+    .i_operation_type  ((r_st_current == P_WR_REQ) ?
+                         2'd1 : 2'd2),
     ...
 );
 ```
@@ -204,18 +239,25 @@ Latch data or set flags on state entry using exact transition edge `r_st_next ==
 ```verilog
 // Good — exact edge, no counter dependency
 always @(posedge i_clk) begin
-    if(i_rst)                                                     r_op_type <= 2'd2;
-    else if(r_st_next == P_WR_REQ && r_st_current == P_FIFO_LATCH)     r_op_type <= 2'd1;
-    else if(r_st_next == P_RD_REQ && r_st_current == P_IDEL)           r_op_type <= 2'd2;
-    else if(r_st_next == P_RD_REQ && r_st_current == P_WR_WAIT_DONE)   r_op_type <= 2'd2;
-    else                                                          r_op_type <= r_op_type;
+    if(i_rst)
+        r_op_type <= 2'd2;
+    else if(r_st_next == P_WR_REQ && r_st_current == P_FIFO_LATCH)
+        r_op_type <= 2'd1;
+    else if(r_st_next == P_RD_REQ && r_st_current == P_IDEL)
+        r_op_type <= 2'd2;
+    else if(r_st_next == P_RD_REQ && r_st_current == P_WR_WAIT_DONE)
+        r_op_type <= 2'd2;
+    else
+        r_op_type <= r_op_type;
 end
 
 // Bad — level-triggered, fires every cycle in state
-else if(r_st_current == P_WR_REQ) r_op_type <= 2'd1;
+else if(r_st_current == P_WR_REQ)
+    r_op_type <= 2'd1;
 
 // normal — r_st_cnt overflow risk at 16'hFFFF -> 0
-else if(r_st_current == P_WR_REQ && r_st_cnt == 16'd0) r_op_type <= 2'd1;
+else if(r_st_current == P_WR_REQ && r_st_cnt == 16'd0)
+    r_op_type <= 2'd1;
 ```
 
 When a state has multiple entry paths, list each transition explicitly.
@@ -226,10 +268,14 @@ Ready output register: clears on handshake (`i_valid && r_o_ready`), asserts on 
 
 ```verilog
 always @(posedge i_clk) begin
-    if(i_rst)                                     r_o_rd_ready <= 1'b0;
-    else if(i_rd_valid && r_o_rd_ready)           r_o_rd_ready <= 1'b0;
-    else if(r_st_current == P_RD_DONE && r_st_next == P_IDEL) r_o_rd_ready <= 1'b1;
-    else                                          r_o_rd_ready <= r_o_rd_ready;
+    if(i_rst)
+        r_o_rd_ready <= 1'b0;
+    else if(i_rd_valid && r_o_rd_ready)
+        r_o_rd_ready <= 1'b0;
+    else if(r_st_current == P_RD_DONE && r_st_next == P_IDEL)
+        r_o_rd_ready <= 1'b1;
+    else
+        r_o_rd_ready <= r_o_rd_ready;
 end
 ```
 
@@ -245,7 +291,7 @@ All internal consumers reference the registered version (`r_o_rd_ready`), not a 
 | `w_` | combinational wire | `w_all_ready` |
 | `ri_` | registered input | `ri_op_type` |
 | `ro_` | registered output | `ro_axi_awready` |
-| `r_o_` | output register (→ assign o_xxx) | `r_o_rd_ready` |
+| `r_o_` | output register (-> assign o_xxx) | `r_o_rd_ready` |
 | `P_` | parameter / localparam | `P_INIT_CYCLE` |
 
 Module names: lowercase snake_case (`mram_ctrl`, `flash_ctrl`, `top`).
@@ -275,7 +321,7 @@ localparam P_INIT      = 4'd0;     // init state
 localparam P_IDEL      = 4'd1;     // idle state
 ```
 
-Shared/cross-module parameters → dedicated `params.vh` file with `` `include "params.vh" ``. Module-local parameters (FSM states, constants) stay inside the module.
+Shared/cross-module parameters -> dedicated `params.vh` file with `` `include "params.vh" ``. Module-local parameters (FSM states, constants) stay inside the module.
 
 ## 5. `default_nettype none + explicit wire ports
 
@@ -354,7 +400,7 @@ When modifying: preserve ALL `Revision` history. Append new entry with version, 
 - Use nonblocking `<=` in sequential logic.
 - Use blocking `=` in combinational logic and continuous `assign` expressions.
 - Spaces around assignment and binary operators.
-- Declaration order: parameters → wires → registers → assign → always blocks → instances.
+- Declaration order: parameters -> wires -> registers -> assign -> always blocks -> instances.
 
 Every `input`, `output`, `reg`, and `wire` must have aligned end-of-line comment describing role.
 
@@ -418,7 +464,10 @@ Required for >4 states or complex transitions.
 ```verilog
 // Block 1: state register
 always @(posedge i_clk) begin
-    if(i_rst) r_st_current <= P_INIT; else r_st_current <= r_st_next;
+    if(i_rst)
+        r_st_current <= P_INIT;
+    else
+        r_st_current <= r_st_next;
 end
 
 // Block 2: next state logic (combinational)
@@ -433,14 +482,17 @@ end
 
 // Block 3: state duration counter
 always @(posedge i_clk) begin
-    if(i_rst)                    r_st_cnt <= 16'd0;
-    else if(r_st_current != r_st_next) r_st_cnt <= 16'd0;
-    else                         r_st_cnt <= r_st_cnt + 16'd1;
+    if(i_rst)
+        r_st_cnt <= 16'd0;
+    else if(r_st_current != r_st_next)
+        r_st_cnt <= 16'd0;
+    else
+        r_st_cnt <= r_st_cnt + 16'd1;
 end
 ```
 
 - State names: `P_` prefix. Register: `r_st_current`. Next state: `r_st_next` (wire or reg, combo-driven).
-- Complex transition conditions → extract to `assign` wires before case block.
+- Complex transition conditions -> extract to `assign` wires before case block.
 - Simple flag/counter state machines also acceptable. Three-block required for >~4 states.
 
 ## 11. RTL correctness
@@ -448,21 +500,27 @@ end
 - No `initial` blocks in synthesizable RTL (prefer reset logic).
 - FSM must have explicit `default` state and recoverable paths.
 - No combinational feedback loops. Break with register if needed.
-- Register-to-register paths: keep ≤4-6 LUT levels. Insert pipeline if exceeding.
+- Register-to-register paths: keep <=4-6 LUT levels. Insert pipeline if exceeding.
 
 ## 12. Reset style
 
 Project default: active-high async reset.
 ```verilog
 always @(posedge i_clk or posedge i_rst) begin
-    if(i_rst) r_cnt <= 16'd0; else r_cnt <= r_cnt + 16'd1;
+    if(i_rst)
+        r_cnt <= 16'd0;
+    else
+        r_cnt <= r_cnt + 16'd1;
 end
 ```
 
 For derived/internal resets, use synchronous:
 ```verilog
 always @(posedge i_clk) begin
-    if(w_rst) r_state <= P_INIT; else r_state <= r_state_next;
+    if(w_rst)
+        r_state <= P_INIT;
+    else
+        r_state <= r_state_next;
 end
 ```
 
@@ -471,7 +529,10 @@ Reset highest priority, always first in block.
 <!--
 AXI bus uses active-low synchronous reset (`i_axi_aresetn`):
 always @(posedge i_axi_aclk) begin
-    if(!i_axi_aresetn) r_axil_reg <= 32'd0; else r_axil_reg <= i_axil_data;
+    if(!i_axi_aresetn)
+        r_axil_reg <= 32'd0;
+    else
+        r_axil_reg <= i_axil_data;
 end
 -->
 
@@ -487,7 +548,7 @@ end
 Do not hand-roll vendor IP blocks (FIFO, BRAM, DSP, PLL). Leave placeholder instantiation with comments. User generates via Libero/Vivado.
 
 ```verilog
-// FIFO_256x56: Libero SmartDesign COREFIFO, 256×56
+// FIFO_256x56: Libero SmartDesign COREFIFO, 256x56
 // User: generate this IP and wire below
 FIFO_256X56 u0_fifo_256x56 (
     .CLK    (i_clk                              ),
@@ -504,7 +565,7 @@ Vendor IP uses device-specific primitives (BRAM, DSP, carry chains) hand-RTL can
 
 ## 15. Numeric literals
 
-Explicit widths with readable separators (matching §1 Explicit bit widths rule):
+Explicit widths with readable separators (matching section 1 Explicit bit widths rule):
 - Decimal: `32'd49_999_999`, `8'd0`, `16'd1`
 - Hex: `8'hFF`, `16'h0800`
 - Binary: `8'b1111_1111`
@@ -514,10 +575,10 @@ Explicit widths with readable separators (matching §1 Explicit bit widths rule)
 
 | Device | LUT | Safe levels | Notes |
 |--------|-----|-------------|-------|
-| Xilinx 7-series | LUT6 | ≤5 | Two LUT5 per LUT6 |
-| Xilinx UltraScale+ | LUT6 | ≤5 | LUT+FF per slice |
-| Microchip PolarFire | LUT4 | ≤4 | LUT4C + carry chain |
-| Microchip RTG4 | LUT4 | ≤4 | Similar to PolarFire |
+| Xilinx 7-series | LUT6 | <=5 | Two LUT5 per LUT6 |
+| Xilinx UltraScale+ | LUT6 | <=5 | LUT+FF per slice |
+| Microchip PolarFire | LUT4 | <=4 | LUT4C + carry chain |
+| Microchip RTG4 | LUT4 | <=4 | Similar to PolarFire |
 
 Common costs: 32b adder (carry chain), 32b comparator (~3-4 levels), 32b MUX (1 level), barrel shifter (1-2), CRC tree (`ceil(log2(w))`).
 
